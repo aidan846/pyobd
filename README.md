@@ -22,6 +22,7 @@ This project is a fork of [barracuda-fsh/pyobd](https://github.com/barracuda-fsh
    - [WiFi adapters](#wifi-adapters)
    - [Bluetooth adapters on Linux](#bluetooth-elm327-on-linux)
 5. [Building the app yourself](#building-the-app-yourself)
+   - [Publishing a release](#publishing-a-release)
 6. [Development](#development)
 7. [To-do list](#to-do-list)
 8. [Credits](#credits)
@@ -60,6 +61,10 @@ If your adapter works (or doesn't), please [open an issue](https://github.com/ai
 Download the app for your system from the [releases page](https://github.com/aidan846/pyobd/releases), or run it from source as shown below. Running from source needs Python 3.10 or newer.
 
 ### macOS
+Download `pyobd-…-macos-apple-silicon.zip` (M1 and newer) or `pyobd-…-macos-intel.zip`, unzip it and move `pyobd.app` to Applications.
+
+The app isn't signed with an Apple developer certificate yet, so the first time you open it macOS will block it. Go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. You only need to do this once.
+
 No extra permissions are needed on macOS. USB and paired Bluetooth adapters show up as `/dev/tty.*` ports.
 
 Most USB adapters work on current macOS without installing a driver.
@@ -202,6 +207,14 @@ pyinstaller --noconfirm --windowed --onedir --name pyobd -i pyobd.ico --add-data
 ```
 
 `--onedir` starts much faster than `--onefile`, which has to unpack itself to a temporary folder on every launch.
+
+### Publishing a release
+Releases are built automatically by GitHub Actions (`.github/workflows/release.yml`). Update the version number in `pyobd.py` (window title) and `pyproject.toml`, commit, then push a tag:
+```bash
+git tag v1.21
+git push origin v1.21
+```
+GitHub builds the macOS (Apple Silicon and Intel), Windows and Linux apps and publishes them on the [releases page](https://github.com/aidan846/pyobd/releases). To test the builds without releasing, open the **Actions** tab, pick **release**, and click **Run workflow**.
 
 ## Development
 Tests connect to a simulated ELM327 adapter ([ELM327-emulator](https://github.com/Ircama/ELM327-emulator)) over the network, the same way a WiFi adapter is reached:

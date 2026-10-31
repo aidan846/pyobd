@@ -1,0 +1,100 @@
+# Builds pyobd for macOS, Windows and Linux and publishes a GitHub Release.
+#
+# Runs when you push a version tag:
+#     git tag v1.21 && git push origin v1.21
+#
+# You can also start it by hand from the Actions tab ("Run workflow") to test
+# the builds without releasing anything; the files are then attached to the
+# workflow run instead.
+
+name: release
+
+on:
+  push:
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create the release
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest       # Apple Silicon
+            name: macos-apple-silicon
+          - os: macos-15-intel     # Intel Macs
+            name: macos-intel
+          - os: windows-latest
+            name: windows
+          - os: ubuntu-24.04
+            name: linux
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # PyPI has no Linux wheels for wxPython; use the prebuilt ones from wxpython.org
+      - name: Install wxPython (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-0 libsdl2-2.0-0 libnotify4 libsm6 libxtst6
+          pip install -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04/ wxPython
+
+      - name: Install requirements
+        run: pip install -r requirements-dev.txt
+
+      - name: Build
+        shell: bash
+        run: |
+          SEP=":"; [ "$RUNNER_OS" = "Windows" ] && SEP=";"
+          pyinstaller --noconfirm --windowed --onedir --name pyobd \
+            -i pyobd.ico --add-data "pyobd.ico${SEP}." \
+            --osx-bundle-identifier io.github.aidan846.pyobd \
+            pyobd.py
+
+      - name: Package
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          [ "$GITHUB_REF_TYPE" = "tag" ] || VERSION="dev"
+          OUT="pyobd-${VERSION}-${{ matrix.name }}"
+          cd dist
+          case "$RUNNER_OS" in
+            macOS)   ditto -c -k --keepParent pyobd.app "../${OUT}.zip" ;;
+            Windows) 7z a -tzip "../${OUT}.zip" pyobd > /dev/null ;;
+            Linux)   tar -czf "../${OUT}.tar.gz" pyobd ;;
+          esac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            pyobd-*.zip
+            pyobd-*.tar.gz
+
+  release:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: builds
+          merge-multiple: true
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" builds/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "pyOBD $GITHUB_REF_NAME" \
+            --generate-notes

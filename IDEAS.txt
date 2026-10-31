@@ -14,8 +14,6 @@ Misfire helper: let the user enter their engine's firing order so misfire counts
 ---
 Dark mode: follow the system light/dark setting on macOS and Windows.
 ---
-Automatic release builds: a GitHub Actions workflow that builds the macOS, Windows and Linux apps whenever a version tag like v1.21 is pushed, and attaches them to the release.
----
 Signed and notarized macOS app: so macOS doesn't show the "unidentified developer" warning when people download it. Needs an Apple Developer account ($99/year).
 ---
 Split up pyobd.py: it's about 3,500 lines in one file. Break it into smaller modules (connection, sensors tab, graphs, DTCs, config) to make it easier to work on (original issue #12).
