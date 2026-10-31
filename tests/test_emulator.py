@@ -27,36 +27,39 @@ def free_port():
 
 def emulator_command():
     exe = shutil.which("elm", path=os.path.dirname(sys.executable)) or shutil.which("elm")
-    return [exe] if exe else None
+    return [os.path.abspath(exe)] if exe else None
 
 
 @unittest.skipUnless(emulator_command(), "ELM327-emulator is not installed")
 class WifiAdapterTest(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        cls.port = free_port()
-        cls.workdir = tempfile.mkdtemp()
-        cls.emulator = subprocess.Popen(
-            emulator_command() + ["-n", str(cls.port), "-s", "car",
-                                  "-b", os.path.join(cls.workdir, "emulator.out")],
+    # A fresh emulator per test: on Windows the emulator's TCP server doesn't
+    # accept a new client after the previous one disconnects.
+    def setUp(self):
+        self.port = free_port()
+        self.workdir = tempfile.mkdtemp()
+        self.emulator = subprocess.Popen(
+            emulator_command() + ["-n", str(self.port), "-s", "car",
+                                  "-b", os.path.join(self.workdir, "emulator.out")],
+            cwd=self.workdir,  # it writes elm.log to the current folder
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.addCleanup(self.stop_emulator)
         deadline = time.time() + 30
         while time.time() < deadline:
             try:
-                socket.create_connection(("127.0.0.1", cls.port), timeout=1).close()
-                break
+                socket.create_connection(("127.0.0.1", self.port), timeout=1).close()
+                return
             except OSError:
                 time.sleep(0.2)
-        else:
-            cls.emulator.kill()
-            raise RuntimeError("emulator did not start")
+        raise RuntimeError("emulator did not start")
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.emulator.terminate()
-        cls.emulator.wait(timeout=10)
-        shutil.rmtree(cls.workdir, ignore_errors=True)
+    def stop_emulator(self):
+        self.emulator.terminate()
+        try:
+            self.emulator.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            self.emulator.kill()
+        shutil.rmtree(self.workdir, ignore_errors=True)
 
     def connect(self, protocol=None):
         conn = obd.OBD("socket://127.0.0.1:%d" % self.port, protocol=protocol,
