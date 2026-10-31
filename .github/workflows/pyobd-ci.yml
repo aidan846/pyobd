@@ -32,7 +32,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-0 libsdl2-2.0-0 libnotify4 libsm6 libxtst6
-          pip install -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04/ wxPython
+          pip install --only-binary wxPython -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04/ wxPython
 
       - name: Install requirements
         run: pip install -r requirements-dev.txt
