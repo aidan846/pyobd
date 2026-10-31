@@ -1,162 +1,162 @@
-# ![PYOBD](/pyobd.gif) PYOBD 
-This is the remake of the program pyobd, a free and open-source program for auto diagnostics. The program was originally made by Donour Sizemore a long time ago, but it wasn't operational for the last 15 years, so I upgraded it from Python 2 to Python 3 and all the new libraries to make it work again. After that, I deleted the fixed commands and used the Python-OBD library, which supports a lot more commands and auto-detects what a cars computer supports, so it displays much more data than before. It works on all platforms - Windows, Linux and MacOS.
+# ![PYOBD](/pyobd.gif) PYOBD
+
+An updated, maintained version of **pyOBD**, the free and open-source car diagnostics app, supporting current versions of macOS (including Apple Silicon), Windows and Linux, and improving the app along the way.
+
+pyOBD talks to your car through a cheap ELM327 adapter (USB, Bluetooth or WiFi). You can view live sensor data and graphs, readiness tests and freeze frame data, and read and clear engine trouble codes (DTCs).
+
+This project is a fork of [barracuda-fsh/pyobd](https://github.com/barracuda-fsh/pyobd). See [Credits](#credits).
 
 ## Presentation on YouTube
+(Recorded for the original project.)
+
 [![Pyobd presentation video](https://img.youtube.com/vi/iKAnw_N8HbE/0.jpg)](https://www.youtube.com/watch?v=iKAnw_N8HbE)
 
 # Table of Contents
-1. [PYOBD](#pyobd)
-   - [Overview](#overview)
-   - [Prerequisites](#prerequisites)
-   - [Installation](#installation)
-      - [Windows](#windows-installation)
-      - [Linux](#linux-installation)
-      - [MacOS](#macos-installation)
-   - [Usage](#usage)
-   - [Running the Script](#running-the-script)
-      - [Windows](#windows-script)
-      - [Linux](#linux-script)
-      - [MacOS](#macos-script)
-   - [Creating the Executable](#creating-the-executable)
-      - [Windows](#windows-executable)
-      - [Linux](#linux-executable)
-      - [MacOS](#macos-executable)
-   - [To-Do List](#to-do-list)
+1. [What's new in this fork](#whats-new-in-this-fork)
+2. [Prerequisites](#prerequisites)
+3. [Installation](#installation)
+   - [macOS](#macos)
+   - [Windows](#windows)
+   - [Linux](#linux)
+4. [Usage](#usage)
+   - [WiFi adapters](#wifi-adapters)
+   - [Bluetooth adapters on Linux](#bluetooth-elm327-on-linux)
+5. [Building the app yourself](#building-the-app-yourself)
+6. [Development](#development)
+7. [To-do list](#to-do-list)
+8. [Credits](#credits)
 
-## Prerequisites:
-You need an ELM327 adapter, a laptop, and a car that supports OBD2 to use this program. All cars in Europe made since 2001 should support it. And in the USA, all cars made since 1996.
+## What's new in this fork
+* **Native Apple Silicon build.** The old macOS app was Intel-only and ran through Rosetta, which made it slow to open and triggers the "will not be supported in future versions of macOS" warning.
+* **WiFi ELM327 adapters.** Choose `MANUAL / WIFI` in Configure and enter `socket://IP:PORT` ([original issue #8](https://github.com/barracuda-fsh/pyobd/issues/8)).
+* **Manual protocol selection** in Configure, for cars where auto-detection picks the wrong protocol ([#36](https://github.com/barracuda-fsh/pyobd/issues/36)).
+* **More stable connections on older cars** (ISO 9141, KWP2000, J1850). A single slow reply no longer drops the connection and starts a reconnect loop ([#62](https://github.com/barracuda-fsh/pyobd/issues/62)).
+* **The window fits your screen.** It opens at a sensible size, centered, and remembers where you left it ([#43](https://github.com/barracuda-fsh/pyobd/issues/43)).
+* No more error messages in the terminal when you disconnect ([#53](https://github.com/barracuda-fsh/pyobd/issues/53)).
+* Simpler requirements that install on current Python versions (3.10 to 3.14) ([#58](https://github.com/barracuda-fsh/pyobd/issues/58), [#61](https://github.com/barracuda-fsh/pyobd/issues/61)).
 
-**Which ELM327 adapters have been reported to work? Most if not all adapters for $10 or more should work.**<br/>
-This is the list of the ones I tried and worked:<br/>
-* VGate Vlinker FS USB
-* [OBDPro USB Scantool](http://www.obdpros.com/product_info.php?products_id=133)<br/>
-* [OBDLink SX USB](https://www.obdlink.com/products/obdlink-sx/)<br/>
-* Chinese OBD2 1.5 USB<br/>
-* VGate iCar Pro BLE (Bluetooth 4.0). 
+## Prerequisites
+You need an ELM327 adapter, a computer, and a car that supports OBD-II. All cars sold in the USA since 1996 and all petrol cars in Europe since 2001 (diesels since 2004) should support it.
 
+**NOTE: pyOBD reads engine data only, not airbag, ABS or body control modules. Those need a more specialized program.**
 
-**Please write to me which adapters you have tested working with the app, so I can include it in the list. My e-mail is at the bottom of this readme.**
+**Which ELM327 adapters have been reported to work?** Most adapters that cost $10 or more should work. These have been tested:
+* VGate vLinker FS USB
+* [OBDPro USB Scantool](http://www.obdpros.com/product_info.php?products_id=133)
+* [OBDLink SX USB](https://www.obdlink.com/products/obdlink-sx/)
+* Chinese OBD2 1.5 USB
+* VGate iCar Pro BLE (Bluetooth 4.0)
+* AUTOHIL AX2 (Bluetooth)
 
-**NOTE: Both USB and bluetooth adapters work with this app, but under Linux I had to pair the bluetooth adapter manually via command line and then manually connect to it. It's probably because bluetooth GUI managers under Linux are buggy.**
+If your adapter works (or doesn't), please [open an issue](https://github.com/aidan846/pyobd/issues) so it can be added to the list.
 
-**Which adapters are good?**</br>
-* These may work, but not fully, and the ones that work (at least mostly) properly are $10 or more. There are multiple reasons why a good adapter is not the cheapest. OBDLink makes good adapters, as does VGate; their adapters also receive firmware updates, so while they are already very good, they keep improving. This is what I found out after googling and reading about it for 3 days.
-* USB Adapters
-    * I recommend USB adapters for a stable and fast connection.
-    * USB vLinker FS USB
-        * If you want a trusted, good adapter, then I think the current USB vLinker FS USB is the best and has a good price.
-* Blutetooth Adapters
-    * Bluetooth is slower and less reliable, and wireless has been reported as worse.
-    * Vgate iCAR Pro
-        * My reccomended choice of bluetooth adapter.
-* Chinese clones 
-    * If you really want to go buy a Chinese clone, I recommend one that has a **PIC18F25K80 chip and FTDI chip (for USB)**, but even then, the firmware is also a factor; 1.5 should be best (for a Chinese clone), but who knows what you will get. I.  If you want an affordable Chinese Elm327 that is branded, then go with the Konnwei KW903. It's about $15 with postage included. But iCar Pro is better.<br/>
+**Which adapters are good?**
+* **USB** gives the most stable and fastest connection. The vLinker FS USB is a good, well-priced choice.
+* **Bluetooth** is slower and less reliable. The Vgate iCar Pro is a good choice.
+* **WiFi** adapters work too (see [WiFi adapters](#wifi-adapters)).
+* **Chinese clones:** if you buy one, look for a **PIC18F25K80 chip and an FTDI chip (for USB)**, ideally with firmware 1.5. The Konnwei KW903 (about $15) is an affordable branded option, but the iCar Pro is better. OBDLink and Vgate adapters also get firmware updates.
 
 ## Installation
-You may need to install libnsl when using linux if it didn't come prepacked with it
+Download the app for your system from the [releases page](https://github.com/aidan846/pyobd/releases), or run it from source as shown below. Running from source needs Python 3.10 or newer.
 
-### Windows-Installation
-Download the standalone executable and install the driver for your ELM327 device. 
+### macOS
+No extra permissions are needed on macOS. USB and paired Bluetooth adapters show up as `/dev/tty.*` ports.
 
-If you have not received a driver with your adapter, then the drivers can be found [here](http://www.totalcardiagnostics.com/support/Knowledgebase/Article/View/1/0/how-to-install-elm327-usb-cable-on-windows-and-obd2-software)
+Most USB adapters work on current macOS without installing a driver.
 
-### Linux-Installation
-Download the standalone executable and add your user account the privileges of accesing USB and serial ports:</br>
-**Note: After running these commands log out and log back in for it to take effect(or restart)**
+To run from source:
 ```bash
-sudo usermod -a -G dialout $USER
-sudo usermod -a -G tty $USER 
-```
-
-For bluetooth adapters, you will probably need to install this:
-```bash
-sudo apt-get install bluetooth bluez blueman
-```
-
-`bluez-utils` was used by older Ubuntu releases. On current Ubuntu systems the
-Bluetooth command-line tools, including `bluetoothctl` and `rfcomm`, are provided
-by the `bluez` package.
-
-### MacOS-Installation
-Download the standalone executable and add your user account the privileges of accesing USB and serial ports: </br>
-**Note: After running these commands log out and log back in for it to take effect(or restart)**
-```bash
-sudo usermod -a -G dialout $USER 
-sudo usermod -a -G tty $USER 
-```
-
-## Usage
-For bluetooth adapters, you will need to pair the adapter once and then connect to it(for some reason on Linux I had to connect to it manually via command line).
-
-Run the executable or the script, connect the ELM327 to the computer and the car's OBD port, set the iginition on the car to on(you don't have to start the engine) and click CONNECT in the app. To connect, go to Configure, select the right port and the right baudrate and click connect. You can leave it at AUTO and connect, but it will take longer to connect and in some cases it will not connect. Manual is safest and fastest, but AUTO works in most cases.\
-**UPDATE: automatic port and baud detection should now work every time!**
-
-The data will display once you are connected, although most of the sensors display data only when the engine is running. If you connected and then turn the engine on, you have to wait a bit so that the program reconnects.
-
-The program was made with ease of use in mind. With it you can view TESTS data, SENSORS data, FREEZE FRAME data, display and clear the TROUBLE CODES and view live GRAPHS. Currently it only displays live data - no recording and replay is possible.
-
-**NOTE: The program only displays the engine data, not airbags, ABS and body control systems. Even if your adapter supports that, you will need a more specialized program for that.**
- 
-## Running the script
-Install Python3 if not installed already.
-You may need to install libsnl when using linux if it didn't come prepacked with it
-
-### Windows-Script
-```bash
+git clone https://github.com/aidan846/pyobd.git
+cd pyobd
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-```
-The script is executed by running:
-```bash
-python3 pyobd.py
+python pyobd.py
 ```
 
-### Linux-Script
-On Debian 10 and 11 and on Ubuntu, type these commands to install the requirements(on Ubuntu replace libgstreamer-plugins-base1.0 with libgstreamer-plugins-base1.0-0): 
+### Windows
+Install the driver for your ELM327 adapter if it needs one. If no driver came with your adapter, the drivers can be found [here](http://www.totalcardiagnostics.com/support/Knowledgebase/Article/View/1/0/how-to-install-elm327-usb-cable-on-windows-and-obd2-software).
+
+To run from source, open a terminal **in the pyobd folder** (the one that contains `requirements.txt`) and run:
 ```bash
-sudo apt-get install dpkg-dev build-essential libjpeg-dev libtiff-dev libsdl1.2-dev libgstreamer-plugins-base1.0 libnotify-dev freeglut3 freeglut3-dev libsm-dev libgtk-3-dev libwebkit2gtk-4.0-dev libxtst-dev gettext python3-dev python3-pip
-sudo apt-get install python3-pip
-pip3 install --upgrade pyinstaller
-pip3 install --upgrade pip
-sudo apt install libglib2.0-dev libsmbclient-dev libcups2-dev libgirepository1.0-dev libcurl4-openssl-dev libssl-dev libsystemd-dev librsync-dev
-pip3 install -r requirements.txt
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python pyobd.py
 ```
-For Ubuntu Noble, the following should be enough to get pyobd.py to run, instead of the above
-```bash
-sudo apt-get install dpkg-dev build-essential libjpeg-dev libtiff-dev libsdl1.2-dev libgstreamer-plugins-base1.0-0 libnotify-dev libglut-dev libglut3.12 libsm-dev libgtk-3-dev libwebkit2gtk-4.1-dev libxtst-dev gettext python3-dev python3-pip
-sudo apt install wxpython-tools numpy python3-tornado python3-pint python3-six
-```
-**Note: After running the commands below log out and log back in for it to take effect(or restart)**
+
+### Linux
+Give your user access to serial ports, then log out and back in (or restart):
 ```bash
 sudo usermod -a -G dialout $USER
 sudo usermod -a -G tty $USER
 ```
 
-When running from a Python virtual environment:
+**USB adapter not showing up on Ubuntu?** The `brltty` braille display service grabs CH340 USB-serial chips, which many ELM327 clones use, so `/dev/ttyUSB0` never appears. If you don't use a braille display, remove it:
 ```bash
-source ~/.venv/bin/activate
-python3 -m pip install -r requirements.txt
+sudo apt remove brltty
 ```
 
-The script is executed by running:
+#### Ubuntu / Debian: using system packages (easiest)
+This works on Ubuntu 24.04+ and Debian 12/13 without compiling anything:
 ```bash
-python3 pyobd.py 
+sudo apt install python3-wxgtk4.0 python3-serial python3-numpy python3-pint
+python3 pyobd.py
 ```
 
-#### Bluetooth ELM327 on Ubuntu
+#### Any distro: using a virtual environment
+PyPI has no Linux wheels for wxPython, so `pip install wxPython` compiles it from source, which can take close to an hour. Use the prebuilt wheels from wxpython.org instead (pick the folder that matches your distro from [this list](https://extras.wxpython.org/wxPython4/extras/linux/gtk3/)):
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04/ wxPython
+pip install -r requirements.txt
+python pyobd.py
+```
 
+If you do need to build wxPython from source, install the build dependencies first (Ubuntu 24.04):
+```bash
+sudo apt install build-essential python3-dev libgtk-3-dev libwebkit2gtk-4.1-dev libgstreamer-plugins-base1.0-dev libnotify-dev libsdl2-dev libsm-dev libxtst-dev libglut-dev
+```
+
+On NixOS, a `shell.nix` with `python3.withPackages (p: [ p.wxpython p.pyserial p.numpy p.pint ])` works.
+
+## Usage
+1. Plug the ELM327 adapter into the car's OBD port and connect it to your computer.
+2. Turn the ignition **on**. You don't have to start the engine.
+3. In pyOBD, open **OBD-II → Configure**, pick the port (or leave it on AUTO) and click OK.
+4. Click **OBD-II → Connect**.
+
+AUTO port and baud detection work in most cases. Choosing the port and baud rate manually is faster and the most reliable. If auto-detection picks the wrong **protocol** for your car, you can set it manually in Configure.
+
+Once connected, you can view TESTS, SENSORS, FREEZE FRAME data and live GRAPHS, and read and clear TROUBLE CODES. Most sensors only show data while the engine is running. If you connect and then start the engine, wait a moment for the app to reconnect.
+
+Misfire counts are reported per cylinder **number** as defined by the manufacturer, not per position in the firing order. Check a diagram of your engine if the numbers don't seem to match.
+
+### WiFi adapters
+WiFi ELM327 adapters create their own WiFi network.
+1. Connect your computer to the adapter's WiFi network (often called `WiFi_OBDII` or similar).
+2. In **Configure**, choose **MANUAL / WIFI** and enter the adapter's address:
+   ```
+   socket://192.168.0.10:35000
+   ```
+   That is the most common address. Some adapters use `192.168.0.10:23` or `192.168.1.10:35000`, so check the adapter's manual or its mobile app settings.
+3. Click OK, then **Connect**. The baud rate setting is ignored for WiFi.
+
+You can also type any serial port that wasn't detected automatically (for example `/dev/rfcomm0` or `COM7`) into the same box.
+
+### Bluetooth ELM327 on Linux
 Pair the ELM327 adapter once, then expose it as a serial device with `rfcomm`.
-This procedure was verified on Ubuntu 24.04 Noble with pyobd running from a
-Python virtual environment and an ELM327 Bluetooth adapter. The tested adapter
+This was verified on Ubuntu 24.04 with an ELM327 Bluetooth adapter. The tested adapter
 connected reliably on RFCOMM channel 2; channel 1 connected but disconnected
 shortly afterwards.
 
-Install Bluetooth tools:
+Install the Bluetooth tools:
 ```bash
 sudo apt-get install bluetooth bluez blueman
 ```
 
-Pair and trust the adapter. Replace `XX:XX:XX:XX:XX:XX` with the adapter MAC
-address:
+Pair and trust the adapter. Replace `XX:XX:XX:XX:XX:XX` with the adapter's MAC address:
 ```bash
 bluetoothctl
 scan on
@@ -165,103 +165,66 @@ trust XX:XX:XX:XX:XX:XX
 quit
 ```
 
-You can list paired devices later with:
-```bash
-bluetoothctl devices
-bluetoothctl info XX:XX:XX:XX:XX:XX
-```
-
 Create `/dev/rfcomm0` on RFCOMM channel 2 and leave this command running:
 ```bash
 sudo rfcomm release rfcomm0
 sudo rfcomm connect rfcomm0 XX:XX:XX:XX:XX:XX 2
 ```
 
-Start pyobd in a second terminal:
-```bash
-source ~/.venv/bin/activate
-python3 pyobd.py
-```
+Start pyOBD in a second terminal, open `Configure`, select `/dev/rfcomm0`, choose baud rate `38400`, and click `Connect`.
 
-In pyobd, open `Configure`, select `/dev/rfcomm0`, choose baud rate `38400`, and
-click `Connect`.
-
-The verified adapter responded from the same virtual environment with:
-```text
-ATI: ELM327 v2.1
-ATRV: 12.1V
-status: Car Connected
-protocol: ISO 15765-4 (CAN 11/500)
-```
-
-You can inspect or remove the RFCOMM connection with:
-```bash
-rfcomm
-sudo rfcomm release rfcomm0
-```
-
-If you prefer a binding that does not keep `rfcomm` in the foreground, use
-`bind` instead of `connect`. The connection will then be opened when pyobd opens
-`/dev/rfcomm0`, but the foreground `connect` command above is easier to debug:
+If you prefer a binding that does not keep `rfcomm` in the foreground, use `bind` instead of `connect`:
 ```bash
 sudo rfcomm release rfcomm0
 sudo rfcomm bind rfcomm0 XX:XX:XX:XX:XX:XX 2
 ```
 
-### MacOS-Script
+On Windows, pair the adapter in Bluetooth settings and use the **outgoing** COM port it creates. On macOS, pair it in System Settings and pick its `/dev/tty.*` port.
 
-run:
-**Note: After running the commands below log out and log back in for it to take effect(or restart)**
+## Building the app yourself
 ```bash
-pip install -r requirements.txt 
-sudo usermod -a -G dialout $USER 
-sudo usermod -a -G tty $USER
+pip install -r requirements-dev.txt
 ```
 
-The script is executed by running:
+**macOS** (builds a native app for the Mac you build on, at `dist/pyobd.app`):
 ```bash
-python3 pyobd.py 
+pyinstaller --noconfirm --windowed --onedir --name pyobd -i pyobd.ico --add-data "pyobd.ico:." pyobd.py
 ```
 
-## Creating the executable
-Install Python3 if not installed already.
-You may need to install libsnl when using linux if it didn't come prepacked with it
-
-### Windows-Executable
-run:
+**Windows:**
 ```bash
-pip3 install -r requirements.txt 
-pip3 install pyinstaller
-pip3 install --upgrade pip
-pip3 install --upgrade pyinstaller
-pyinstaller --onefile -c -i pyobd.ico --add-data "pyobd.ico;." pyobd.py
+pyinstaller --noconfirm --windowed --onedir --name pyobd -i pyobd.ico --add-data "pyobd.ico;." pyobd.py
 ```
 
-### Linux-Executable
-On Debian 10 and 11 and on Ubuntu, type these commands to install the requirements(on Ubuntu replace libgstreamer-plugins-base1.0 with libgstreamer-plugins-base1.0-0): 
+**Linux:**
 ```bash
-sudo apt-get install dpkg-dev build-essential libjpeg-dev libtiff-dev libsdl1.2-dev libgstreamer-plugins-base1.0 libnotify-dev freeglut3 freeglut3-dev libsm-dev libgtk-3-dev libwebkit2gtk-4.0-dev libxtst-dev gettext python3-dev python3-pip
-sudo apt-get install python3-pip
-pip3 install --upgrade pyinstaller
-pip3 install --upgrade pip
-sudo apt install libglib2.0-dev libsmbclient-dev libcups2-dev libgirepository1.0-dev libcurl4-openssl-dev libssl-dev libsystemd-dev librsync-dev
+pyinstaller --noconfirm --windowed --onedir --name pyobd -i pyobd.ico --add-data "pyobd.ico:." pyobd.py
 ```
 
-run:
+`--onedir` starts much faster than `--onefile`, which has to unpack itself to a temporary folder on every launch.
+
+## Development
+Tests connect to a simulated ELM327 adapter ([ELM327-emulator](https://github.com/Ircama/ELM327-emulator)) over the network, the same way a WiFi adapter is reached:
 ```bash
-pip3 install -r requirements.txt
-pip3 install pyinstaller
-pyinstaller --onefile -w -i pyobd.ico --add-data "pyobd.ico:." pyobd.py
+pip install -r requirements-dev.txt
+python -m unittest discover -v -s tests -t .
 ```
 
-### MacOS-Executable
-run:
+You can also run the emulator yourself and connect the app to it with `socket://127.0.0.1:35000`:
 ```bash
-pip3 install -r requirements.txt
-pip3 install pyinstaller
-python3 -m PyInstaller --onefile -w -i pyobd.ico --add-data "pyobd.ico:." pyobd.py
+elm -n 35000 -s car
 ```
 
-## TO-DO LIST:
-### Adding sensor data recording and replay feature.</br>
+## To-do list
+See [IDEAS.txt](IDEAS.txt) for planned features and ideas. Suggestions are welcome in [issues](https://github.com/aidan846/pyobd/issues).
+
+## Credits
+* **[Aidan (aidan846)](https://github.com/aidan846)**: current maintainer of this fork.
+* **[Jure Poljsak (barracuda-fsh)](https://github.com/barracuda-fsh)**: revived pyOBD in 2021, ported it to Python 3 and the [python-OBD](https://github.com/brendan-w/python-OBD) library, and maintained [the original repository](https://github.com/barracuda-fsh/pyobd).
+* **Charles Donour Sizemore**: original author of pyOBD (2004).
+* **SeCons Ltd.**: contributions in 2008–2009.
+* Everyone who contributed fixes and reports to the original project.
+
+pyOBD is free software, licensed under the GNU General Public License v2 (see [COPYING](COPYING)).
+
 ![ELM327](/elm327.jpg)

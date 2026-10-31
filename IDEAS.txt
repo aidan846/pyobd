@@ -1,0 +1,27 @@
+Sensor recording and replay: record live sensor data to a file while driving, then replay it later in the sensors and graphs tabs without a car connected. Most requested feature (original issue #38).
+---
+Export to CSV: save recorded sensor data, trouble codes and freeze frame data to a CSV file or a simple report you can open in Excel or share with a mechanic.
+---
+Resizable graph layouts: the graph tabs use fixed pixel positions, so the 8-graph tab is wider than the window. Use sizers so the graphs stretch to fit any window size.
+---
+Show all trouble codes on older cars: on legacy (non-CAN) protocols only one DTC shows up even when there are several (original issue #20).
+---
+Raw ELM327 terminal: a tab where you can type AT/OBD commands and see the raw replies. Useful for debugging adapters and reaching things like GM ABS codes over J1850 (original issue #52).
+---
+Metric/imperial toggle: let the user choose km/h vs mph, °C vs °F, kPa vs psi, instead of always showing metric.
+---
+Misfire helper: let the user enter their engine's firing order so misfire counts are easier to map to physical cylinders (original issue #44).
+---
+Dark mode: follow the system light/dark setting on macOS and Windows.
+---
+Automatic release builds: a GitHub Actions workflow that builds the macOS, Windows and Linux apps whenever a version tag like v1.21 is pushed, and attaches them to the release.
+---
+Signed and notarized macOS app: so macOS doesn't show the "unidentified developer" warning when people download it. Needs an Apple Developer account ($99/year).
+---
+Split up pyobd.py: it's about 3,500 lines in one file. Break it into smaller modules (connection, sensors tab, graphs, DTCs, config) to make it easier to work on (original issue #12).
+---
+Small-screen / Raspberry Pi mode: a compact layout for small displays like a 7" Pi touchscreen in the car (original issue #43).
+---
+Bluetooth LE adapters: connect directly to BLE adapters (like the iCar Pro BLE) without needing to set up a serial port first.
+---
+Nix package: package the app for NixOS (original issue #33).

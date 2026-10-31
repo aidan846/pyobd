@@ -55,10 +55,11 @@ logger = logging.getLogger(__name__)
 
 class OBDConnection:
 
-    def __init__(self,portnum,_notify_window, baud, SERTIMEOUT,RECONNATTEMPTS, FAST):
+    def __init__(self,portnum,_notify_window, baud, SERTIMEOUT,RECONNATTEMPTS, FAST, PROTOCOL="AUTO"):
         self._notify_window = _notify_window
         if baud == 'AUTO':
             baud = None
+        protocol = None if PROTOCOL in (None, "", "AUTO") else PROTOCOL
         if portnum == 'AUTO':
             portnum = None
         if FAST == 'FAST':
@@ -74,7 +75,7 @@ class OBDConnection:
                 self.connection.close()
             except:
                 pass
-            self.connection = obd.OBD(portstr=portnum, baudrate=baud, protocol=None, fast=FAST, timeout=truncate(float(SERTIMEOUT),1), check_voltage=False, start_low_power=False)
+            self.connection = obd.OBD(portstr=portnum, baudrate=baud, protocol=protocol, fast=FAST, timeout=truncate(float(SERTIMEOUT),1), check_voltage=False, start_low_power=False)
             if self.connection.status() == "Car Connected":
                 wx.PostEvent(self._notify_window, DebugEvent([2, "Connected to: "+ str(self.connection.port_name())]))
                 break

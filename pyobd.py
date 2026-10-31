@@ -5,7 +5,8 @@
 #
 # Copyright 2004 Donour Sizemore (donour@uchicago.edu)
 # Copyright 2009 Secons Ltd. (www.obdtester.com)
-# Copyright 2021 Jure Poljsak (https://github.com/barracuda-fsh/pyobd) 
+# Copyright 2021 Jure Poljsak (https://github.com/barracuda-fsh/pyobd)
+# Copyright 2026 Aidan (https://github.com/aidan846/pyobd)
 #
 # This file is part of pyOBD.
 #
@@ -127,7 +128,7 @@ def resource_path(relative_path):
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
+        base_path = os.path.dirname(os.path.abspath(__file__))
 
     return os.path.join(base_path, relative_path)
 
@@ -415,9 +416,9 @@ class MyApp(wx.App):
             ListCtrlAutoWidthMixin.__init__(self)
 
     class sensorProducer(threading.Thread):
-        def __init__(self, _notify_window, portName, SERTIMEOUT, RECONNATTEMPTS, BAUDRATE, FAST, _nb):
-            #from queue import Queue
+        def __init__(self, _notify_window, portName, SERTIMEOUT, RECONNATTEMPTS, BAUDRATE, FAST, _nb, PROTOCOL="AUTO"):
             self.portName = portName
+            self.PROTOCOL = PROTOCOL
             self.RECONNATTEMPTS = RECONNATTEMPTS
             self.SERTIMEOUT = SERTIMEOUT
             self.port = None
@@ -434,7 +435,7 @@ class MyApp(wx.App):
             except:
                 pass
             wx.PostEvent(self._notify_window, StatusEvent([0, 1, "Connecting...."]))
-            self.connection = obd_io.OBDConnection(self.portName, self._notify_window, self.baudrate, self.SERTIMEOUT,self.RECONNATTEMPTS, self.FAST)
+            self.connection = obd_io.OBDConnection(self.portName, self._notify_window, self.baudrate, self.SERTIMEOUT,self.RECONNATTEMPTS, self.FAST, self.PROTOCOL)
             if self.connection.connection.status() != 'Car Connected':  # Cant open serial port
                 print(self.connection.connection.status())
                 #wx.PostEvent(self._notify_window, StatusEvent([666]))  # signal apl, that communication was disconnected
@@ -2175,22 +2176,6 @@ class MyApp(wx.App):
         self.GetDTCButton.Enable(True)
         self.ClearDTCButton.Enable(True)
 
-        def sensor_toggle(e):
-            sel = e.m_itemIndex
-            state = self.senprod.active[sel]
-            print (sel, state)
-            if   state == 0:
-                self.senprod.on(sel)
-                self.sensors.SetItem(sel, 1, "1")
-            elif state == 1:
-                self.senprod.off(sel)
-                self.sensors.SetItem(sel, 1, "0")
-            else:
-                traceback.print_exc()
-                #debug("Incorrect sensor state")
-
-        self.sensors.Bind(wx.EVT_LIST_ITEM_ACTIVATED, sensor_toggle, id=self.sensor_id)
-
 
     def sensor_control_off(self):  # after disconnect disable few buttons
         self.dtcmenu.Enable(ID_GETC, False)
@@ -2503,7 +2488,8 @@ class MyApp(wx.App):
             self.configfilepath = "pyobd.ini"
         else:
             self.configfilepath = os.environ['HOME'] + '/.pyobdrc'
-        if self.config.read(self.configfilepath) == []:
+        self.config.read(self.configfilepath)
+        if not self.config.has_section("pyOBD"):
             self.COMPORT = "AUTO"
             self.RECONNATTEMPTS = 5
             self.SERTIMEOUT = 1
@@ -2523,8 +2509,10 @@ class MyApp(wx.App):
                 self.SERTIMEOUT = 5
                 self.BAUDRATE = "AUTO"
                 self.FAST = "FAST"
+        # added later than the other settings, so older config files lack it
+        self.PROTOCOL = self.config.get("pyOBD", "PROTOCOL", fallback="AUTO")
 
-        self.frame = wx.Frame(None, -1, "pyOBD-II ver. 1.19")
+        self.frame = wx.Frame(None, -1, "pyOBD-II ver. 1.20")
         ico = wx.Icon(resource_path('pyobd.ico'), wx.BITMAP_TYPE_ICO)
         self.frame.SetIcon(ico)
 
@@ -2668,27 +2656,78 @@ class MyApp(wx.App):
 
         self.SetTopWindow(self.frame)
 
+        self.frame.Bind(wx.EVT_CLOSE, self.OnExit)
+        self.place_main_window()
         self.frame.Show(True)
-        self.frame.SetSize((1024, 920))
-        self.sensor_control_off() # ??? JURE POLJSAK
+        self.sensor_control_off()
 
 
         return True
 
+    DEFAULT_WINDOW_SIZE = (1024, 760)
+
+    def place_main_window(self):
+        """Restore the last window position, or center a default-sized window,
+        always keeping it inside the visible area of a connected display."""
+        def read_int(key):
+            try:
+                return self.config.getint("window", key)
+            except Exception:
+                return None
+
+        x, y, w, h = (read_int(k) for k in ("x", "y", "width", "height"))
+        saved = None not in (x, y, w, h)
+
+        display_index = wx.Display.GetFromPoint(wx.Point(x, y)) if saved else wx.NOT_FOUND
+        if display_index == wx.NOT_FOUND:
+            display_index = wx.Display.GetFromWindow(self.frame)
+        if display_index == wx.NOT_FOUND:
+            display_index = 0
+        area = wx.Display(display_index).GetClientArea()  # excludes menu bar and Dock
+
+        if not saved:
+            w, h = self.DEFAULT_WINDOW_SIZE
+        w = max(640, min(w, area.width))
+        h = max(480, min(h, area.height))
+        if not saved:
+            x = area.x + (area.width - w) // 2
+            y = area.y + (area.height - h) // 2
+        x = min(max(x, area.x), area.x + area.width - w)
+        y = min(max(y, area.y), area.y + area.height - h)
+
+        self.frame.SetSize(x, y, w, h)
+
+    def save_window_geometry(self):
+        try:
+            if self.frame.IsIconized() or self.frame.IsMaximized():
+                return
+            x, y = self.frame.GetPosition()
+            w, h = self.frame.GetSize()
+            if not self.config.has_section("window"):
+                self.config.add_section("window")
+            for key, value in (("x", x), ("y", y), ("width", w), ("height", h)):
+                self.config.set("window", key, str(value))
+            with open(self.configfilepath, "w") as f:
+                self.config.write(f)
+        except Exception:
+            traceback.print_exc()
+
     def OnHelpVisit(self, event):
-        webbrowser.open("https://github.com/barracuda-fsh/pyobd")
+        webbrowser.open("https://github.com/aidan846/pyobd")
 
     def OnHelpOrder(self, event):
         webbrowser.open("https://www.google.com/search?q=elm327+obd2+scanner")
 
     def OnHelpAbout(self, event):  # todo about box
-        Text = """  PyOBD is an automotive OBD2 diagnosting application using ELM237 cable.
+        Text = """  PyOBD is an automotive OBD2 diagnostic application for ELM327 adapters.
 
-(C) 2021 Jure Poljsak
+(C) 2026 Aidan (aidan846), maintainer
+(C) 2021 Jure Poljsak (barracuda-fsh)
 (C) 2008-2009 SeCons Ltd.
 (C) 2004 Charles Donour Sizemore
 
-https://github.com/barracuda-fsh/pyobd
+https://github.com/aidan846/pyobd
+Based on https://github.com/barracuda-fsh/pyobd
 http://www.obdtester.com/
 http://www.secons.com/
 
@@ -2697,7 +2736,7 @@ it under the terms of the GNU General Public License as published by the Free So
 either version 2 of the License, or (at your option) any later version.
 
   PyOBD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; 
-without even the implied warranty of MEHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 See the GNU General Public License for more details. You should have received a copy of 
 the GNU General Public License along with PyOBD; if not, write to 
 the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -2938,34 +2977,18 @@ the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  0211
             pass
 
 
-        try:
-            self.panel.Destroy()
-        except:
-            traceback.print_exc()
+        # graph canvases only exist if that graph tab was opened while connected
+        for name in ("panel", "panel1", "panel2", "panel3", "panel4",
+                     "panel8_1", "panel8_2", "panel8_3", "panel8_4",
+                     "panel8_5", "panel8_6", "panel8_7", "panel8_8"):
+            canvas = getattr(self, name, None)
+            if canvas:  # a destroyed wx window is falsy, so this is safe to repeat
+                canvas.Destroy()
         try:
             self.graph_list_ctrl.DeleteAllItems()
             self.graph_list_ctrl.InsertItem(0, "")
         except:
             traceback.print_exc()
-        try:
-            self.panel1.Destroy()
-            self.panel2.Destroy()
-            self.panel3.Destroy()
-            self.panel4.Destroy()
-
-        except:
-            traceback.print_exc()
-        try:
-            self.panel8_1.Destroy()
-            self.panel8_2.Destroy()
-            self.panel8_3.Destroy()
-            self.panel8_4.Destroy()
-            self.panel8_5.Destroy()
-            self.panel8_6.Destroy()
-            self.panel8_7.Destroy()
-            self.panel8_8.Destroy()
-        except:
-            pass
         try:
             self.ThreadControl = 666
 
@@ -3302,7 +3325,7 @@ the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  0211
                 self.senprod.stop()
         self.ThreadControl = 0
 
-        self.senprod = self.sensorProducer(self, self.COMPORT, self.SERTIMEOUT, self.RECONNATTEMPTS, self.BAUDRATE, self.FAST, self.nb)
+        self.senprod = self.sensorProducer(self, self.COMPORT, self.SERTIMEOUT, self.RECONNATTEMPTS, self.BAUDRATE, self.FAST, self.nb, self.PROTOCOL)
         self.senprod.start()
 
         self.sensor_control_on()
@@ -3384,104 +3407,141 @@ the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  0211
 
         return available
 
+    MANUAL_PORT = "MANUAL / WIFI"
+    BAUDRATES = ["AUTO", "38400", "9600", "115200", "57600", "19200", "14400",
+                 "230400", "250000", "460800", "500000", "576000", "921600",
+                 "1000000", "1152000", "1500000", "2000000", "2500000",
+                 "3000000", "3500000", "4000000"]
+    # ELM327 protocol numbers (see ATSP / ATTP in the ELM327 datasheet)
+    PROTOCOLS = [
+        ("AUTO", "AUTO (detect)"),
+        ("1", "1 - SAE J1850 PWM (41.6 kbaud)"),
+        ("2", "2 - SAE J1850 VPW (10.4 kbaud)"),
+        ("3", "3 - ISO 9141-2 (5 baud init)"),
+        ("4", "4 - ISO 14230-4 KWP (5 baud init)"),
+        ("5", "5 - ISO 14230-4 KWP (fast init)"),
+        ("6", "6 - ISO 15765-4 CAN (11 bit, 500 kbaud)"),
+        ("7", "7 - ISO 15765-4 CAN (29 bit, 500 kbaud)"),
+        ("8", "8 - ISO 15765-4 CAN (11 bit, 250 kbaud)"),
+        ("9", "9 - ISO 15765-4 CAN (29 bit, 250 kbaud)"),
+        ("A", "A - SAE J1939 CAN (29 bit, 250 kbaud)"),
+    ]
+
     def Configure(self, e=None):
-        id = 0
-        diag = wx.Dialog(self.frame, id, title="Configure")
+        diag = wx.Dialog(self.frame, title="Configure")
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        ports = obd.scan_serial()
-        if ports == []:
-            ports = ["AUTO"]
-        else:
-            ports.append("AUTO")
+        ports = obd.scan_serial() + ["AUTO", self.MANUAL_PORT]
 
-        # web open link button
-        self.OpenLinkButton = wx.Button(diag, -1, "Click here to order ELM-USB interface", size=(260, 30))
-        diag.Bind(wx.EVT_BUTTON, self.OnHelpOrder, self.OpenLinkButton)
-        sizer.Add(self.OpenLinkButton)
-        rb = wx.RadioBox(diag, id, "Choose Serial Port",
-                         choices=ports, style=wx.RA_SPECIFY_COLS,
-                         majorDimension=2)
+        orderButton = wx.Button(diag, -1, "Click here to order ELM-USB interface")
+        diag.Bind(wx.EVT_BUTTON, self.OnHelpOrder, orderButton)
+        sizer.Add(orderButton, 0, wx.ALL, 5)
 
-        sizer.Add(rb, 0)
-        baudrates = ['AUTO', "38400", "9600",  "115200", "57600", "19200", "14400", "3000000", "2000000", "1000000", "250000", "230400", "128000", "500000", "460800", "500000", "576000", "921600", "1000000", "1152000", "1500000", "2000000", "2500000", "3000000", "3500000", "4000000"]
-        brb = wx.RadioBox(diag, id, "Choose Baud Rate",
-                         choices=baudrates, style=wx.RA_SPECIFY_COLS,
-                         majorDimension=2)
+        rb = wx.RadioBox(diag, -1, "Choose Serial Port", choices=ports,
+                         style=wx.RA_SPECIFY_COLS, majorDimension=2)
+        sizer.Add(rb, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
 
-        sizer.Add(brb, 0)
-        fb = wx.RadioBox(diag, id, "FAST or NORMAL:",
-                         choices=["FAST","NORMAL"], style=wx.RA_SPECIFY_COLS,
-                         majorDimension=2)
+        # free-form port, for WiFi adapters (socket://192.168.0.10:35000)
+        # or ports that weren't detected (e.g. /dev/rfcomm0)
+        manualRow = wx.BoxSizer(wx.HORIZONTAL)
+        manualRow.Add(wx.StaticText(diag, -1, "Port or address:"), 0,
+                      wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        manualCtrl = wx.TextCtrl(diag, -1, size=(280, -1))
+        manualCtrl.SetHint("socket://192.168.0.10:35000")
+        manualCtrl.SetToolTip(
+            "For WiFi adapters use socket://IP:PORT (usually 192.168.0.10:35000).\n"
+            "You can also type a serial port that wasn't detected, e.g. /dev/rfcomm0 or COM7.")
+        manualRow.Add(manualCtrl, 1, wx.EXPAND)
+        sizer.Add(manualRow, 0, wx.EXPAND | wx.ALL, 5)
 
-        sizer.Add(fb, 0)
-        # timeOut input control
-        timeoutPanel = wx.Panel(diag, -1)
-        timeoutCtrl = wx.TextCtrl(timeoutPanel, -1, '', pos=(140, 0), size=(40, 25))
-        timeoutStatic = wx.StaticText(timeoutPanel, -1, 'Timeout:', pos=(3, 5), size=(140, 20))
-        timeoutCtrl.SetValue(str(self.SERTIMEOUT))
+        if self.COMPORT in ports:
+            rb.SetStringSelection(self.COMPORT)
+        elif self.COMPORT not in (0, "", None):
+            # a saved port that isn't detected right now (WiFi, unplugged USB...)
+            rb.SetStringSelection(self.MANUAL_PORT)
+            manualCtrl.SetValue(str(self.COMPORT))
 
-        # reconnect attempt input control
-        reconnectPanel = wx.Panel(diag, -1)
-        reconnectCtrl = wx.TextCtrl(reconnectPanel, -1, '', pos=(140, 0), size=(40, 25))
-        reconnectStatic = wx.StaticText(reconnectPanel, -1, 'Reconnect attempts:', pos=(3, 5), size=(140, 20))
-        reconnectCtrl.SetValue(str(self.RECONNATTEMPTS))
+        def update_manual(evt=None):
+            manualCtrl.Enable(rb.GetStringSelection() == self.MANUAL_PORT)
+        rb.Bind(wx.EVT_RADIOBOX, update_manual)
+        update_manual()
 
+        brb = wx.RadioBox(diag, -1, "Choose Baud Rate (ignored for WiFi)",
+                          choices=self.BAUDRATES, style=wx.RA_SPECIFY_COLS,
+                          majorDimension=3)
+        if self.BAUDRATE in self.BAUDRATES:
+            brb.SetStringSelection(self.BAUDRATE)
+        sizer.Add(brb, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
 
+        protocolRow = wx.BoxSizer(wx.HORIZONTAL)
+        protocolRow.Add(wx.StaticText(diag, -1, "Protocol:"), 0,
+                        wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        protocolChoice = wx.Choice(diag, -1, choices=[label for _, label in self.PROTOCOLS])
+        protocol_ids = [pid for pid, _ in self.PROTOCOLS]
+        protocolChoice.SetSelection(protocol_ids.index(self.PROTOCOL) if self.PROTOCOL in protocol_ids else 0)
+        protocolChoice.SetToolTip("Leave on AUTO unless the adapter picks the wrong protocol for your car.")
+        protocolRow.Add(protocolChoice, 1, wx.EXPAND)
+        sizer.Add(protocolRow, 0, wx.EXPAND | wx.ALL, 5)
 
-        # set actual serial port choice
-        if (self.COMPORT != 0) and (self.COMPORT in ports):
-            rb.SetSelection(ports.index(self.COMPORT))
-        baudrates = ['AUTO', "38400", "9600",  "115200", "57600", "19200", "14400", "3000000", "2000000", "1000000", "250000", "230400", "128000", "500000", "460800", "500000", "576000", "921600", "1000000", "1152000", "1500000", "2000000", "2500000", "3000000", "3500000", "4000000"]
-        if (self.BAUDRATE != 0) and (self.BAUDRATE in baudrates):
-            brb.SetSelection(baudrates.index(self.BAUDRATE))
-        if (self.FAST == "FAST") or (self.FAST == "NORMAL"):
-            fb.SetSelection(["FAST","NORMAL"].index(self.FAST))
+        fb = wx.RadioBox(diag, -1, "FAST or NORMAL:", choices=["FAST", "NORMAL"],
+                         style=wx.RA_SPECIFY_COLS, majorDimension=2)
+        if self.FAST in ("FAST", "NORMAL"):
+            fb.SetStringSelection(self.FAST)
+        sizer.Add(fb, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 5)
 
+        grid = wx.FlexGridSizer(2, 2, 5, 5)
+        grid.Add(wx.StaticText(diag, -1, "Timeout (seconds):"), 0, wx.ALIGN_CENTER_VERTICAL)
+        timeoutCtrl = wx.TextCtrl(diag, -1, str(self.SERTIMEOUT), size=(60, -1))
+        grid.Add(timeoutCtrl)
+        grid.Add(wx.StaticText(diag, -1, "Reconnect attempts:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        reconnectCtrl = wx.TextCtrl(diag, -1, str(self.RECONNATTEMPTS), size=(60, -1))
+        grid.Add(reconnectCtrl)
+        sizer.Add(grid, 0, wx.ALL, 5)
 
-        sizer.Add(timeoutPanel, 0)
-        sizer.Add(reconnectPanel, 0)
+        sizer.Add(diag.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL), 0, wx.EXPAND | wx.ALL, 5)
+        diag.SetSizerAndFit(sizer)
+        diag.CentreOnParent()
 
-        box = wx.BoxSizer(wx.HORIZONTAL)
-        box.Add(wx.Button(diag, wx.ID_OK), 0)
-        box.Add(wx.Button(diag, wx.ID_CANCEL), 1)
+        while diag.ShowModal() == wx.ID_OK:
+            port = rb.GetStringSelection()
+            if port == self.MANUAL_PORT:
+                port = manualCtrl.GetValue().strip()
+                if not port:
+                    wx.MessageBox("Type a port or address, e.g. socket://192.168.0.10:35000",
+                                  "Configure", wx.OK | wx.ICON_WARNING, diag)
+                    continue
+            try:
+                timeout = float(timeoutCtrl.GetValue())
+                reconnects = int(reconnectCtrl.GetValue())
+                if timeout <= 0 or reconnects < 1:
+                    raise ValueError
+            except ValueError:
+                wx.MessageBox("Timeout must be a positive number and reconnect attempts a whole number of at least 1.",
+                              "Configure", wx.OK | wx.ICON_WARNING, diag)
+                continue
 
-        sizer.Add(box, 0)
-        diag.SetSizer(sizer)
-        diag.SetAutoLayout(True)
-        sizer.Fit(diag)
-        r = diag.ShowModal()
-        if r == wx.ID_OK:
+            self.COMPORT = port
+            self.BAUDRATE = brb.GetStringSelection()
+            self.PROTOCOL = protocol_ids[protocolChoice.GetSelection()]
+            self.FAST = fb.GetStringSelection()
+            self.SERTIMEOUT = timeoutCtrl.GetValue().strip()
+            self.RECONNATTEMPTS = reconnects
 
-            # create section
-            if self.config.sections() == []:
+            if not self.config.has_section("pyOBD"):
                 self.config.add_section("pyOBD")
-            # set and save COMPORT
-
-            self.COMPORT = ports[rb.GetSelection()]
-            COMPORT = self.COMPORT
             self.config.set("pyOBD", "COMPORT", self.COMPORT)
-
-            self.BAUDRATE = baudrates[brb.GetSelection()]
-            BAUDRATE = self.BAUDRATE
             self.config.set("pyOBD", "BAUDRATE", self.BAUDRATE)
-
-            self.FAST = ["FAST","NORMAL"][fb.GetSelection()]
+            self.config.set("pyOBD", "PROTOCOL", self.PROTOCOL)
             self.config.set("pyOBD", "FAST", self.FAST)
-
-            # set and save SERTIMEOUT
-            self.SERTIMEOUT = timeoutCtrl.GetValue()
             self.config.set("pyOBD", "SERTIMEOUT", self.SERTIMEOUT)
-
-
-            # set and save RECONNATTEMPTS
-            self.RECONNATTEMPTS = int(reconnectCtrl.GetValue())
-            self.config.set("pyOBD", "RECONNATTEMPTS", self.RECONNATTEMPTS)
-
-            # write configuration to cfg file
-            self.config.write(open(self.configfilepath, 'w'))
+            self.config.set("pyOBD", "RECONNATTEMPTS", str(self.RECONNATTEMPTS))
+            with open(self.configfilepath, "w") as f:
+                self.config.write(f)
+            break
+        diag.Destroy()
 
     def OnExit(self, e=None):
+        self.save_window_geometry()
         self.ThreadControl = 666
         time.sleep(0.1)
         os._exit(0)

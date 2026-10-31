@@ -61,6 +61,9 @@ class ELM327:
     # an 'OK' which indicates we are entering low power state
     ELM_LP_ACTIVE = b'OK'
 
+    # consecutive read timeouts before the adapter is considered disconnected
+    MAX_READ_TIMEOUTS = 3
+
     _SUPPORTED_PROTOCOLS = {
         # "0" : None,
         # Automatic Mode. This isn't an actual protocol. If the
@@ -126,6 +129,7 @@ class ELM327:
         self.__port = None
         self.__protocol = UnknownProtocol([])
         self.__low_power = False
+        self.__read_timeouts = 0
         self.timeout = timeout
 
 
@@ -336,6 +340,12 @@ class ELM327:
         return False
 
     def set_baudrate(self, baud):
+        # network adapters (WiFi ELM327 via socket://host:port, rfc2217://...)
+        # have no baud rate, so there is nothing to detect or set
+        if "://" in self.port_name():
+            logger.debug("Network port, skipping baudrate setup")
+            print("Network port, skipping baudrate setup")
+            return True
         if baud is None:
             # when connecting to pseudo terminal, don't bother with auto baud
             if self.port_name().startswith("/dev/pts"):
@@ -656,13 +666,20 @@ class ELM327:
 
             # if nothing was received
             if not data:
-                logger.warning("Failed to read port")
-                print("Failed to read port")
-                self.__status = OBDStatus.NOT_CONNECTED
-                self.__port.close()
-                self.__port = None
+                # A single timeout is normal on slow protocols (ISO 9141,
+                # KWP2000, J1850) or when the car doesn't answer a command.
+                # Only treat the adapter as gone after several in a row,
+                # e.g. a Bluetooth adapter that was powered off.
+                self.__read_timeouts += 1
+                logger.warning("Failed to read port (%d in a row)" % self.__read_timeouts)
+                print("Failed to read port (%d in a row)" % self.__read_timeouts)
+                if self.__read_timeouts >= self.MAX_READ_TIMEOUTS:
+                    self.__status = OBDStatus.NOT_CONNECTED
+                    self.__port.close()
+                    self.__port = None
                 break
 
+            self.__read_timeouts = 0
             buffer.extend(data)
 
             # end on specified end-marker sequence

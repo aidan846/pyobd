@@ -1,21 +1,26 @@
 [project]
-dependencies = [
-    "wxpython~=4.2.1",
-    "pyserial~=3.5",
-    "numpy~=1.23",
-    "tornado~=3.2.1",
-    "pint==0.20.1",
-    "pillow==10.4.0",
-    "six==1.16.0",
-]
-
 name = "pyobd2"
-version = "1.17"
-description = "An OBD-II compliant car diagnostic tool "
-authors = [{ "name" = "Jure Poljsak" }, { "name" = "Charles Donour Sizemore" }]
+version = "1.20"
+description = "An OBD-II car diagnostic tool for ELM327 adapters (USB, Bluetooth and WiFi). A maintained, updated version of pyOBD for current macOS, Windows and Linux."
+authors = [
+    { name = "Aidan (aidan846)" },
+    { name = "Jure Poljsak (barracuda-fsh)" },
+    { name = "Charles Donour Sizemore" },
+]
 readme = "README.md"
 license = "GPL-2.0-only"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
+dependencies = [
+    "wxPython>=4.2.2",
+    "pyserial>=3.5",
+    "numpy>=1.26",
+    "Pint>=0.20",
+]
+
+[project.urls]
+Homepage = "https://github.com/aidan846/pyobd"
+Issues = "https://github.com/aidan846/pyobd/issues"
+"Original project" = "https://github.com/barracuda-fsh/pyobd"
 
 [build-system]
 requires = ["setuptools", "wheel"]

@@ -1,0 +1,4 @@
+-r requirements.txt
+pyinstaller>=6.10
+pillow>=10.4     # lets PyInstaller convert pyobd.ico to the macOS .icns format
+ELM327-emulator>=3.0
