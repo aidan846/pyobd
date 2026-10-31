@@ -85,16 +85,23 @@ jobs:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: builds
           merge-multiple: true
 
+      # GitHub's automatic "what changed" notes, followed by download and
+      # first-launch instructions from .github/release-footer.md
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="$GITHUB_REF_NAME" --jq .body > notes.md
+          cat .github/release-footer.md >> notes.md
           gh release create "$GITHUB_REF_NAME" builds/* \
             --repo "$GITHUB_REPOSITORY" \
             --title "pyOBD $GITHUB_REF_NAME" \
-            --generate-notes
+            --notes-file notes.md

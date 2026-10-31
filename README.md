@@ -63,7 +63,10 @@ Download the app for your system from the [releases page](https://github.com/aid
 ### macOS
 Download `pyobd-…-macos-apple-silicon.zip` (M1 and newer) or `pyobd-…-macos-intel.zip`, unzip it and move `pyobd.app` to Applications.
 
-The app isn't signed with an Apple developer certificate yet, so the first time you open it macOS will block it. Go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. You only need to do this once.
+The app isn't signed with an Apple developer certificate yet, so the first time you open it macOS will block it. Go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. You only need to do this once. Or run this once in Terminal:
+```bash
+xattr -dr com.apple.quarantine /Applications/pyobd.app
+```
 
 No extra permissions are needed on macOS. USB and paired Bluetooth adapters show up as `/dev/tty.*` ports.
 
@@ -80,6 +83,10 @@ python pyobd.py
 ```
 
 ### Windows
+Download `pyobd-…-windows.zip`, unzip it and run `pyobd.exe` inside the `pyobd` folder.
+
+The app isn't signed with a paid certificate yet, so the first time you run it Windows may show "Windows protected your PC". Click **More info → Run anyway**. Some antivirus programs wrongly flag apps built with PyInstaller. If yours does, run pyOBD from source as shown below.
+
 Install the driver for your ELM327 adapter if it needs one. If no driver came with your adapter, the drivers can be found [here](http://www.totalcardiagnostics.com/support/Knowledgebase/Article/View/1/0/how-to-install-elm327-usb-cable-on-windows-and-obd2-software).
 
 To run from source, open a terminal **in the pyobd folder** (the one that contains `requirements.txt`) and run:
@@ -91,6 +98,8 @@ python pyobd.py
 ```
 
 ### Linux
+Download `pyobd-…-linux.tar.gz`, extract it and run `./pyobd/pyobd`, or run from source as shown below.
+
 Give your user access to serial ports, then log out and back in (or restart):
 ```bash
 sudo usermod -a -G dialout $USER
